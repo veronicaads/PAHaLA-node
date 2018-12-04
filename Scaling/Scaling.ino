@@ -8,6 +8,10 @@
 #include <soc/rtc.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <ArduinoJson.h>
+
+#define UUID_SCALE "3b38fe3d-77a3-4c6f-b7be-9e08829d9a7e"
+StaticJsonBuffer<150> jsonBuffer;
 
 //UNTUK NTP
 #define NTP_OFFSET  25200 // In seconds 
@@ -20,11 +24,14 @@ NTPClient timeClient(ntpUDP, NTP_ADDRESS, 0, NTP_INTERVAL);
 HX711 scale(13, 12);
 float tmp, ar[100], final_weight=0;
 int i=0;
+String statu;
+String alarm_time;
 
 const char* ssid = "Mi 5 Phone";
 const char* password =  "stefanuS";
 
 //HOST UNTUK WEBSOCKET
+//PORT SCALE 
 char path[] = "/hi";
 char host[] = "pahala.xyz";
 WebSocketClient webSocketClient;
@@ -81,6 +88,40 @@ void connect_server(){//SEKALIAN
   webSocketClient.host = host;
   if (webSocketClient.handshake(client)) {
     Serial.println("Handshake successful");
+    if (client.connected()) {
+       Serial.println("Connected ^^");
+
+      String sendItems;
+
+      /** Json object for outgoing data */
+      JsonObject& jsonOut = jsonBuffer.createObject();
+      jsonOut["key"] = "uuid";
+      jsonOut["uuid"] = UUID_SCALE;
+      // Convert JSON object into a string
+      jsonOut.printTo(sendItems);
+
+      webSocketClient.sendData(sendItems);
+      
+      // encode the data
+//    int keyIndex = 0;
+//    Serial.println("Stored settings: " + wifiCredentials);
+//    for (int index = 0; index < wifiCredentials.length(); index++) {
+//      wifiCredentials[index] = (char)wifiCredentials[index] ^ (char)apName[keyIndex];
+//      keyIndex++;
+//      if (keyIndex >= strlen(apName)) keyIndex = 0;
+//    }
+//    pCharacteristicWiFi->setValue((uint8_t*)&wifiCredentials[0], wifiCredentials.length());
+//    jsonBuffer.clear();
+    
+//      webSocketClient.sendData("Info to be echoed back");
+//SEND DALAM BENTUK JSON KEY DAN UUID sendata
+    
+//      webSocketClient.getData(data);
+//      Serial.println(data);
+    }
+    else {
+      connect_server();
+    }
   } else {
     Serial.println("Handshake failed.");
   }
@@ -165,16 +206,33 @@ void loop() {
   // KALO PAS JAMNYA, FORMAT HH:MM:SS BUNYI ALARAM digitalWrite(BUZZER, HIGH);
   // CEK BERAT BADAN, KALO ADA BERAT NYA MATTIN BUZZER KIRIM KE SERVER DATANYA lwat web socket  
   // KALO ADA PERUBAHAN DATA ALARM, CEK JAM (websocket) heartbeat
+  //WEBSOCKET : selalu nyala dan khsus minta jam, API ENDPOINT : Ngirim berat
   delay(100);
 
   weighing(); 
   
   if (client.connected()) {
      Serial.println("Connected ^^");
-    
-//    webSocketClient.sendData("Info to be echoed back");
- 
+
+      String sendData;
+     /** Json object for outgoing data */
+      JsonObject& jsonOut2 = jsonBuffer.createObject();
+      jsonOut2["key"] = "flag";
+      jsonOut2["flag"] = 1;
+      // Convert JSON object into a string
+      jsonOut2.printTo(sendData);
+
+      webSocketClient.sendData(sendData);
+      
     webSocketClient.getData(data);
+    JsonObject& jsonIn = jsonBuffer.parseObject(data);
+    if (jsonIn.success()) {
+      if (jsonIn.containsKey("status") &&
+        jsonIn.containsKey("time")) { //JAM ALARM
+        statu = jsonIn["status"].as<String>();
+        alarm_time = jsonIn["time"].as<String>();
+        }
+    }
     Serial.println(data);
   }
   else {
