@@ -3,13 +3,33 @@
 #include <string.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WebSocketClient.h>
+#include <SPI.h>
+#include <soc/rtc.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
+//UNTUK NTP
+#define NTP_OFFSET  25200 // In seconds 
+#define NTP_INTERVAL 60 * 1000    // In miliseconds
+#define NTP_ADDRESS  "id.pool.ntp.org"
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, NTP_ADDRESS, 0, NTP_INTERVAL);
+
+#define BUZZER 14
 HX711 scale(13, 12);
 float tmp, ar[100], final_weight=0;
 int i=0;
 
-const char* ssid = "Sutedjo";
-const char* password =  "11191996";
+const char* ssid = "Mi 5 Phone";
+const char* password =  "stefanuS";
+
+//HOST UNTUK WEBSOCKET
+char path[] = "/hi";
+char host[] = "pahala.xyz";
+WebSocketClient webSocketClient;
+WiFiClient client;
+
 
 void calibrate(){
   scale.set_scale(25280);
@@ -38,28 +58,33 @@ float average(){
   }
 }
 
-void connect_server(){
+void connect_server(){//SEKALIAN 
+  timeClient.setTimeOffset(NTP_OFFSET);
   WiFi.begin(ssid, password);
+  //CONNECT TO WIFI
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.println("Connecting to WiFi..");
   }
   Serial.println("Connected to WiFi ^.^ ");
-}
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
 
-void setup() {
-  rtc_clk_cpu_freq_set(RTC_CPU_FREQ_80M);
-  Serial.begin(115200);
-  Serial.println("HX711 Demo");
-  pinMode(LED_BUILTIN, OUTPUT);
-  scale.power_down();
-  delay(500);
-  scale.power_up();
-  Serial.println("Welcome");
-
-  calibrate();
-
-  connect_server(); 
+  // MULAI HANDSHAKE KE SERVER
+  if (client.connect(host, 8080)) {
+    Serial.println("Connected");
+  } else {
+    Serial.println("Connection failed.");
+  }
+ 
+  webSocketClient.path = path;
+  webSocketClient.host = host;
+  if (webSocketClient.handshake(client)) {
+    Serial.println("Handshake successful");
+  } else {
+    Serial.println("Handshake failed.");
+  }
+  timeClient.begin();
 }
 
 void weighing(){
@@ -92,10 +117,10 @@ void weighing(){
   
 }
 
-void post(String endpoint, float datum){//Datum temennya data
+void post(String api_endpoint, float datum){//Datum temennya data
   if(WiFi.status() == WL_CONNECTED && datum>=11){
       HTTPClient http;
-      http.begin(endpoint);
+      http.begin(api_endpoint);
       http.addHeader("Content-Type", "application/x-www-form-urlencoded");
   
       int httpCode = http.POST("names="+(String)datum);
@@ -116,10 +141,46 @@ void post(String endpoint, float datum){//Datum temennya data
    } 
 }
 
+void setup() {
+  rtc_clk_cpu_freq_set(RTC_CPU_FREQ_80M);
+  Serial.begin(115200);
+  Serial.println("HX711 Demo");
+  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(BUZZER, OUTPUT);
+  scale.power_down();
+  delay(500);
+  scale.power_up();
+  Serial.println("Welcome");
+
+  calibrate();
+
+  connect_server(); 
+}
+
 void loop() {
   // put your main code here, to run repeatedly:
-  weighing(); 
+  String data;
+  timeClient.update();
+  Serial.println(timeClient.getFormattedTime());
+  // KALO PAS JAMNYA, FORMAT HH:MM:SS BUNYI ALARAM digitalWrite(BUZZER, HIGH);
+  // CEK BERAT BADAN, KALO ADA BERAT NYA MATTIN BUZZER KIRIM KE SERVER DATANYA lwat web socket  
+  // KALO ADA PERUBAHAN DATA ALARM, CEK JAM (websocket) heartbeat
+  delay(100);
 
+  weighing(); 
+  
+  if (client.connected()) {
+     Serial.println("Connected ^^");
+    
+//    webSocketClient.sendData("Info to be echoed back");
+ 
+    webSocketClient.getData(data);
+    Serial.println(data);
+  }
+  else {
+    connect_server();
+  }
+  
 //  if(final_weight>10){
 //    post("http://pahala.xyz:8200/hello",final_weight);
 //  }
