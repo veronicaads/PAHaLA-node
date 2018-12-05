@@ -1,46 +1,58 @@
+//Library ESP32
 #include <soc/rtc.h>
+
+//Library Loadcell
 #include <HX711.h>
-#include <string.h>
+
+//Library Koneksi (WiFi)
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WebSocketClient.h>
-#include <SPI.h>
-#include <soc/rtc.h>
+
+//Library Time NTP
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <SPI.h>
+
+//Library Tambahan
+#include <string.h>
 #include <ArduinoJson.h>
 
+//Define WiFi
+const char* ssid = "Mi 5 Phone";
+const char* password =  "stefanuS";
+
+//Define Koneksi
 #define UUID_SCALE "3b38fe3d-77a3-4c6f-b7be-9e08829d9a7e"
 StaticJsonBuffer<150> jsonBuffer;
 
-//UNTUK NTP
+//HOST UNTUK WEBSOCKET
+char path[] = "/hi";
+char host[] = "pahala.xyz";
+WebSocketClient webSocketClient;
+WiFiClient client;
+
+//Define NTP
 #define NTP_OFFSET  25200 // In seconds 
 #define NTP_INTERVAL 60 * 1000    // In miliseconds
 #define NTP_ADDRESS  "id.pool.ntp.org"
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, NTP_ADDRESS, 0, NTP_INTERVAL);
 
+//Define Scale
 #define BUZZER 14
 HX711 scale(13, 12);
 float tmp, ar[100], final_weight=0;
 int i=0;
+
+//Define Alarm
 String statu;
 String alarm_time;
-
-const char* ssid = "Mi 5 Phone";
-const char* password =  "stefanuS";
-
-//HOST UNTUK WEBSOCKET
-//PORT SCALE 
-char path[] = "/hi";
-char host[] = "pahala.xyz";
-WebSocketClient webSocketClient;
-WiFiClient client;
+String now;
 
 
 void calibrate(){
   scale.set_scale(25280);
-//  scale.set_scale(10200);
   //Kalo set scale makin besar, average getunit makin besar = Hasil makin kecil
   //Kalo set scale makin kecil, average getunit makin besar = Hasil makin besar
   
@@ -65,9 +77,10 @@ float average(){
   }
 }
 
-void connect_server(){//SEKALIAN 
+void connect_server(){//SEKALIAN NTP
   timeClient.setTimeOffset(NTP_OFFSET);
   WiFi.begin(ssid, password);
+
   //CONNECT TO WIFI
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -80,7 +93,8 @@ void connect_server(){//SEKALIAN
   // MULAI HANDSHAKE KE SERVER
   if (client.connect(host, 8080)) {
     Serial.println("Connected");
-  } else {
+  } 
+  else {
     Serial.println("Connection failed.");
   }
  
@@ -100,24 +114,15 @@ void connect_server(){//SEKALIAN
       // Convert JSON object into a string
       jsonOut.printTo(sendItems);
 
+      Serial.println(sendItems);
+      
       webSocketClient.sendData(sendItems);
       
-      // encode the data
-//    int keyIndex = 0;
-//    Serial.println("Stored settings: " + wifiCredentials);
-//    for (int index = 0; index < wifiCredentials.length(); index++) {
-//      wifiCredentials[index] = (char)wifiCredentials[index] ^ (char)apName[keyIndex];
-//      keyIndex++;
-//      if (keyIndex >= strlen(apName)) keyIndex = 0;
-//    }
-//    pCharacteristicWiFi->setValue((uint8_t*)&wifiCredentials[0], wifiCredentials.length());
-//    jsonBuffer.clear();
+      // jsonBuffer.clear();
+        
+
+      //SEND DALAM BENTUK JSON KEY DAN UUID send data
     
-//      webSocketClient.sendData("Info to be echoed back");
-//SEND DALAM BENTUK JSON KEY DAN UUID sendata
-    
-//      webSocketClient.getData(data);
-//      Serial.println(data);
     }
     else {
       connect_server();
@@ -138,7 +143,7 @@ void weighing(){
   }
   else {
     if(ar[3]!=0){
-//      Serial.println("Size : "+sizeof(ar));
+      //Serial.println("Size : "+sizeof(ar));
       for(int i=1;i<sizeof(ar);i++){
         Serial.print(ar[i]);Serial.print("-");
       }
@@ -185,13 +190,12 @@ void post(String api_endpoint, float datum){//Datum temennya data
 void setup() {
   rtc_clk_cpu_freq_set(RTC_CPU_FREQ_80M);
   Serial.begin(115200);
-  Serial.println("HX711 Demo");
+  Serial.println("Welcome, This is PAHALA Scale");
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(BUZZER, OUTPUT);
   scale.power_down();
   delay(500);
   scale.power_up();
-  Serial.println("Welcome");
 
   calibrate();
 
@@ -199,12 +203,10 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
   String data;
-  timeClient.update();
-  Serial.println(timeClient.getFormattedTime());
+
   // KALO PAS JAMNYA, FORMAT HH:MM:SS BUNYI ALARAM digitalWrite(BUZZER, HIGH);
-  // CEK BERAT BADAN, KALO ADA BERAT NYA MATTIN BUZZER KIRIM KE SERVER DATANYA lwat web socket  
+  // CEK BERAT BADAN, KALO ADA BERAT NYA MATTIN BUZZER KIRIM KE SERVER DATANYA
   // KALO ADA PERUBAHAN DATA ALARM, CEK JAM (websocket) heartbeat
   //WEBSOCKET : selalu nyala dan khsus minta jam, API ENDPOINT : Ngirim berat
   delay(100);
@@ -212,34 +214,53 @@ void loop() {
   weighing(); 
   
   if (client.connected()) {
-     Serial.println("Connected ^^");
+    Serial.println("Connected ^^");
 
+    //MINTA DATA ALARM
       String sendData;
-     /** Json object for outgoing data */
+      /** Json object for outgoing data */
       JsonObject& jsonOut2 = jsonBuffer.createObject();
       jsonOut2["key"] = "flag";
       jsonOut2["flag"] = 1;
       // Convert JSON object into a string
       jsonOut2.printTo(sendData);
+      Serial.print("Data dikirim : ");
+      Serial.println(sendData);
 
       webSocketClient.sendData(sendData);
-      
-    webSocketClient.getData(data);
-    JsonObject& jsonIn = jsonBuffer.parseObject(data);
-    if (jsonIn.success()) {
-      if (jsonIn.containsKey("status") &&
-        jsonIn.containsKey("time")) { //JAM ALARM
-        statu = jsonIn["status"].as<String>();
-        alarm_time = jsonIn["time"].as<String>();
+      statu="";alarm_time="";
+      webSocketClient.getData(data);
+      JsonObject& jsonIn = jsonBuffer.parseObject(data);
+      if (jsonIn.success()) {
+        if (jsonIn.containsKey("status") &&
+          jsonIn.containsKey("time")) { //JAM ALARM
+          statu = jsonIn["status"].as<String>();
+          alarm_time = jsonIn["time"].as<String>();
+          }
+      }
+      Serial.println(data);
+
+    //CEK ALARM
+      timeClient.update();
+      Serial.println(timeClient.getFormattedTime());
+      if(alarm_time!=""){
+        if(timeClient.getFormattedTime()>=alarm_time)//KALO UDH LEWAT JAMNYA{
+          digitalWrite(BUZZER, HIGH);
+          delay(100);
+          final_weight=0;
+          while(final_weight<10){
+            weighing();
+          }
+          digitalWrite(BUZZER, LOW);
+          //Kalo ada beratnya, kirim ke server;
+          post("https://pahala.xyz/weight",final_weight);
+          
+          
         }
-    }
-    Serial.println(data);
+      }
   }
   else {
     connect_server();
   }
-  
-//  if(final_weight>10){
-//    post("http://pahala.xyz:8200/hello",final_weight);
-//  }
+
 }
