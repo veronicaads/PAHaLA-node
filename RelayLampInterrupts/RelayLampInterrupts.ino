@@ -1,3 +1,6 @@
+//RELAY LAMPU INTERRUPT
+// Hanya mengirimkan UID 1 kali
+
 // Library ESP32
 #include <soc/rtc.h>
 
@@ -110,17 +113,7 @@ void loop() {
   if (client.connected()) {
       Serial.println("Connected ^^");
       //SEND UUID
-      String sendItems;
-      JsonObject& jsonOut = jsonBuffer.createObject();
-      jsonOut["key"] = "uuid";
-      jsonOut["uuid"] = UUID_LAMP;
-      // Convert JSON object into a string
-      jsonOut.printTo(sendItems);
-
-      Serial.println(sendItems);
       
-      webSocketClient.sendData(sendItems);
-
       //AMBIL DATA
       jsonBuffer.clear();
       
@@ -174,17 +167,4 @@ void loop() {
   }
 }
 
-//Switch
-        //    reading = digitalRead(Lamp);
-        //    if(reading){
-        //      digitalWrite(Lamp, LOW);
-        //      digitalWrite(LED_BUILTIN, HIGH);
-        //      Serial.println("Lampu Menyala");
-        //      delay(3000);
-        //    }
-        //    else{
-        //      digitalWrite(Lamp, HIGH);
-        //      digitalWrite(LED_BUILTIN, LOW);
-        //      Serial.println("Lampu Padam");
-        //      delay(3000);
-        //    }
+
