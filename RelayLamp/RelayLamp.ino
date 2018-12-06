@@ -1,14 +1,88 @@
-#include <HTTPClient.h>
-#include <HX711.h>
-#include <WiFi.h>
+// Library ESP32
 #include <soc/rtc.h>
-//LAMPU NORMALLY CLOSE (low-low nyala)
+
+//Library Wifi
+#include <WebSocketClient.h>
+#include <HTTPClient.h>
+#include <WiFi.h>
+
+//Library Tambahan
+#include <string.h>
+#include <ArduinoJson.h>
+
+//Define LAMPU 
+//NORMALLY CLOSE (Saklar low- Lampu low nyala)
 #define Lamp 27
 #define Saklar 14
-const char* ssid = "Sutedjo";
-const char* password =  "11191996";
-  
 int reading;
+String flag_on;
+
+//Define WiFi
+#define UUID_LAMP "3b38fe3d-77a3-4c6f-b7be-9e08829d9a7e"
+StaticJsonBuffer<150> jsonBuffer;
+const char* ssid = "Mi 5 Phone";
+const char* password =  "stefanuS";
+
+//Define WebSocket
+char path[] = "/hi";
+char host[] = "pahala.xyz";
+WebSocketClient webSocketClient;
+WiFiClient client;
+
+void connect_server(){
+  WiFi.begin(ssid, password);
+
+  //CONNECT TO WIFI
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.println("Connecting to WiFi..");
+  }
+  Serial.println("Connected to WiFi ^.^ ");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  // MULAI HANDSHAKE KE SERVER
+  if (client.connect(host, 8080)) {
+    Serial.println("Connected");
+  } 
+  else {
+    Serial.println("Connection failed.");
+  }
+ 
+  webSocketClient.path = path;
+  webSocketClient.host = host;
+  if (webSocketClient.handshake(client)) {
+    Serial.println("Handshake successful");
+    if (client.connected()) {
+       Serial.println("Connected ^^");
+
+      String sendItems;
+
+      /** Json object for outgoing data */
+      JsonObject& jsonOut = jsonBuffer.createObject();
+      jsonOut["key"] = "uuid";
+      jsonOut["uuid"] = UUID_LAMP;
+      // Convert JSON object into a string
+      jsonOut.printTo(sendItems);
+
+      Serial.println(sendItems);
+      
+      webSocketClient.sendData(sendItems);
+      
+      // jsonBuffer.clear();
+        
+
+      //SEND DALAM BENTUK JSON KEY DAN UUID send data
+    
+    }
+    else {
+      connect_server();
+    }
+  } 
+  else {
+    Serial.println("Handshake failed.");
+  }
+}
 
 void setup() {
   rtc_clk_cpu_freq_set(RTC_CPU_FREQ_80M); //our ESP32 runs with only 80 MHZ and the signal is now 3 times longer, much better for the HX711
@@ -17,43 +91,33 @@ void setup() {
   pinMode(Lamp, OUTPUT);
   pinMode(Saklar, OUTPUT);
   
-  WiFi.begin(ssid, password);
- 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.println("Connecting to WiFi..");
-  }
-  
- if(WL_CONNECTED){
-    digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
-    Serial.println("Connected to the WiFi network");
- }
-  
- 
+  connect_server();
+  digitalWrite(Saklar, LOW);
 }
  
 void loop() {
-  digitalWrite(Saklar, LOW);
-  if(WiFi.status() == WL_CONNECTED){
-    
-    HTTPClient http;
+  String data;
+  if (client.connected()) {
+      Serial.println("Connected ^^");
 
-    http.begin("http://pahala.xyz:8200/hello");
-    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-    int httpCode = http.POST("Status");//APA YANG MAU DIKIRIM ?
-  //ERROR KARENA Port 8200 sudha dimatikan dari server
-    if(httpCode>0){
-      //KALO DAPET HASIL GET
-      String request = http.getString();
+      webSocketClient.getData(data);
+      flag_on=data;
 
-      Serial.print("Code :");
-      Serial.println(httpCode);
-      Serial.println("Isi :"+request);
-      
-    
-      //IF NYALA MAU MATIIN
-      reading = digitalRead(Lamp);
-      if(reading){
+      //MINTA DATA ON/OFF
+          /** Json object for outgoing data */
+          
+          webSocketClient.getData(data);
+          JsonObject& jsonIn = jsonBuffer.parseObject(data);
+          if (jsonIn.success()) {
+            if (jsonIn.containsKey("status")) {
+              flag_on = jsonIn["status"].as<String>();
+              }
+          }
+          Serial.print("Perintah : ");
+          Serial.println(flag_on);
+          Serial.println(data);
+
+      if(flag_on=="On"){
         digitalWrite(Lamp, LOW);
         digitalWrite(LED_BUILTIN, HIGH);
         Serial.println("Lampu Menyala");
@@ -65,13 +129,35 @@ void loop() {
         Serial.println("Lampu Padam");
         delay(3000);
       }
-    }
-    else{
-      Serial.println("Error on HTTP Request");
-    }
 
-    http.end();
+      String sendData;
+      //KIRIM RESPONSE
+      JsonObject& response = jsonBuffer.createObject();
+      response["key"] = "flag";
+      response["flag"] = 1;
+      // Convert JSON object into a string
+      response.printTo(sendData);
+      Serial.print("Data dikirim : ");
+      Serial.println(sendData);
 
-    delay(5000);
+      webSocketClient.sendData(sendData);
+  }
+  else{
+      connect_server();
   }
 }
+
+//Switch
+        //    reading = digitalRead(Lamp);
+        //    if(reading){
+        //      digitalWrite(Lamp, LOW);
+        //      digitalWrite(LED_BUILTIN, HIGH);
+        //      Serial.println("Lampu Menyala");
+        //      delay(3000);
+        //    }
+        //    else{
+        //      digitalWrite(Lamp, HIGH);
+        //      digitalWrite(LED_BUILTIN, LOW);
+        //      Serial.println("Lampu Padam");
+        //      delay(3000);
+        //    }

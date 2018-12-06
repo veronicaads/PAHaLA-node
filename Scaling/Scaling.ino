@@ -40,8 +40,8 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, NTP_ADDRESS, 0, NTP_INTERVAL);
 
 //Define Scale
-#define BUZZER 14
-HX711 scale(13, 12);
+#define BUZZER 4
+HX711 scale(13, 14);
 float tmp, ar[100], final_weight=0;
 int i=0;
 
@@ -77,6 +77,22 @@ float average(){
   }
 }
 
+void alarm_connect_server(int flag){
+  //Kalo flag 1 : konek pertama, flag 2 : konek karena putus
+  if(flag==1){
+    digitalWrite(BUZZER, HIGH);delay(50);
+    digitalWrite(BUZZER, LOW); delay(50);
+    digitalWrite(BUZZER, HIGH);delay(50);
+    digitalWrite(BUZZER, LOW); 
+  }
+  else{
+    digitalWrite(BUZZER, HIGH);delay(50);
+    digitalWrite(BUZZER, LOW); delay(50);
+    digitalWrite(BUZZER, HIGH);delay(500);
+    digitalWrite(BUZZER, LOW); 
+  }
+}
+
 void connect_server(){//SEKALIAN NTP
   timeClient.setTimeOffset(NTP_OFFSET);
   WiFi.begin(ssid, password);
@@ -103,8 +119,8 @@ void connect_server(){//SEKALIAN NTP
   if (webSocketClient.handshake(client)) {
     Serial.println("Handshake successful");
     if (client.connected()) {
-       Serial.println("Connected ^^");
-
+      Serial.println("Connected Websocket^^");
+      alarm_connect_server(1);
       String sendItems;
 
       /** Json object for outgoing data */
@@ -209,12 +225,11 @@ void loop() {
   // CEK BERAT BADAN, KALO ADA BERAT NYA MATTIN BUZZER KIRIM KE SERVER DATANYA
   // KALO ADA PERUBAHAN DATA ALARM, CEK JAM (websocket) heartbeat
   //WEBSOCKET : selalu nyala dan khsus minta jam, API ENDPOINT : Ngirim berat
-  delay(100);
 
-  weighing(); 
+//  weighing(); 
   
   if (client.connected()) {
-    Serial.println("Connected ^^");
+      Serial.println("Connected ^^");
 
     //MINTA DATA ALARM
       String sendData;
@@ -244,7 +259,7 @@ void loop() {
       timeClient.update();
       Serial.println(timeClient.getFormattedTime());
       if(alarm_time!=""){
-        if(timeClient.getFormattedTime()>=alarm_time)//KALO UDH LEWAT JAMNYA{
+        if(timeClient.getFormattedTime()==alarm_time)//KALO UDH LEWAT JAMNYA{
           digitalWrite(BUZZER, HIGH);
           delay(100);
           final_weight=0;
@@ -257,9 +272,10 @@ void loop() {
           
           
         }
-      }
   }
   else {
+    alarm_connect_server(2);
+    
     connect_server();
   }
 
