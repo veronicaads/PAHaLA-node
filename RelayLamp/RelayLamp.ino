@@ -117,7 +117,7 @@ void loop() {
           Serial.println(flag_on);
           Serial.println(data);
 
-      if(flag_on=="On"){
+      if(flag_on=="true"){
         digitalWrite(Lamp, LOW);
         digitalWrite(LED_BUILTIN, HIGH);
         Serial.println("Lampu Menyala");
