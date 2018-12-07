@@ -200,7 +200,11 @@ void post(String api_endpoint, float datum){//Datum temennya data
       http.end();
       
       delay(1000);
-   } 
+   }
+   else{
+    Serial.println("Gagal Koneksi ke API Scale");
+    connect_server(); 
+   }
 }
 
 void setup() {
@@ -228,75 +232,80 @@ void loop() {
 
 //  weighing(); 
   
-    if (client.connected()) {
-        Serial.println("Connected ^^");
-  
-      //MINTA DATA ALARM
-        String sendData;
-        /** Json object for outgoing data */
-  //      JsonObject& jsonOut2 = jsonBuffer.createObject();
-  //      jsonOut2["key"] = "flag";
-  //      jsonOut2["flag"] = 1;
-  //      // Convert JSON object into a string
-  //      jsonOut2.printTo(sendData);
-  //      Serial.print("Data dikirim : ");
-  //      Serial.println(sendData);
-  //      webSocketClient.sendData(sendData);
-  //      jsonBuffer.clear();
-        String sendItems="";
-  
-        /** Json object for outgoing data */
-        JsonObject& jsonOut = jsonBuffer.createObject();
-        jsonOut["key"] = "uuid";
-        jsonOut["uuid"] = UUID_SCALE;
-        // Convert JSON object into a string
-        jsonOut.printTo(sendItems);
-  
-        Serial.println(sendItems);
-        
-        webSocketClient.sendData(sendItems);
-        jsonBuffer.clear();
-        
-        statu="";alarm_time="";
-        webSocketClient.getData(data);
-        JsonObject& jsonIn = jsonBuffer.parseObject(data);
-        if (jsonIn.success()) {
-          if (jsonIn.containsKey("status")) { //JAM ALARM
-              if(jsonIn.containsKey("text")){
-                  alarm_time = jsonIn["text"].as<String>();    
-              }
-            statu = jsonIn["status"].as<String>();
-          }
-        }
-        Serial.print("Perintah : ");Serial.println(alarm_time);
-        Serial.print("Status : ");Serial.println(statu);
-        Serial.print("Penerimaan Data : ");Serial.println(data);
-  
-      //CEK ALARM
-        timeClient.update();
-        Serial.println(timeClient.getFormattedTime());
-        Serial.print("Epoch : ");Serial.println(timeClient.getEpochTime());
-        if(alarm_time!="" && statu=="200"){
-          if(timeClient.getFormattedTime()==alarm_time)//KALO UDH LEWAT JAMNYA
-          {
-            delay(100);
-            final_weight=0;
-            while(final_weight<10){
-              digitalWrite(BUZZER, HIGH);
-              weighing();
-            }
-            digitalWrite(BUZZER, LOW);
-            //Kalo ada beratnya, kirim ke server;
-            post("https://pahala.xyz/weight",final_weight);
-            
-            Serial.print("Berat anda : ");
-            Serial.println(final_weight);
-          }
-    }
-    else {
-      alarm_connect_server(2);
+  if (client.connected()) {
+      Serial.println("Connected ^^");
+
+    //MINTA DATA ALARM
+      String sendData;
+      /** Json object for outgoing data */
+//      JsonObject& jsonOut2 = jsonBuffer.createObject();
+//      jsonOut2["key"] = "flag";
+//      jsonOut2["flag"] = 1;
+//      // Convert JSON object into a string
+//      jsonOut2.printTo(sendData);
+//      Serial.print("Data dikirim : ");
+//      Serial.println(sendData);
+//      webSocketClient.sendData(sendData);
+//      jsonBuffer.clear();
+      String sendItems="";
+
+      /** Json object for outgoing data */
+      JsonObject& jsonOut = jsonBuffer.createObject();
+      jsonOut["key"] = "uuid";
+      jsonOut["uuid"] = UUID_SCALE;
+      // Convert JSON object into a string
+      jsonOut.printTo(sendItems);
+
+      Serial.println(sendItems);
       
-      connect_server();
-    }
+      webSocketClient.sendData(sendItems);
+      jsonBuffer.clear();
+      
+      statu="";alarm_time="";
+      webSocketClient.getData(data);
+      JsonObject& jsonIn = jsonBuffer.parseObject(data);
+      if (jsonIn.success()) {
+        if (jsonIn.containsKey("status")) { //JAM ALARM
+            if(jsonIn.containsKey("text")){
+                alarm_time = jsonIn["text"].as<String>();    
+            }
+          statu = jsonIn["status"].as<String>();
+        }
+      }
+      Serial.print("Perintah : ");Serial.println(alarm_time);
+      Serial.print("Status : ");Serial.println(statu);
+      Serial.print("Penerimaan Data : ");Serial.println(data);
+
+    //CEK ALARM
+      timeClient.update();
+      Serial.println(timeClient.getFormattedTime());
+      Serial.print("Epoch : ");Serial.println(timeClient.getEpochTime());
+      if(alarm_time!="" && statu=="200"){
+        Serial.print("Cek Status"); Serial.println(statu);
+        if(timeClient.getFormattedTime()==alarm_time)//KALO UDH LEWAT JAMNYA
+//        if(alarm_time=="07:00:00")
+        {
+          delay(100);
+          final_weight=0;
+          while(final_weight<10){
+            digitalWrite(LED_BUILTIN, HIGH);
+            digitalWrite(BUZZER, HIGH);
+            weighing();
+          }
+          digitalWrite(BUZZER, LOW);
+          digitalWrite(LED_BUILTIN, LOW);
+          //Kalo ada beratnya, kirim ke server;
+//          post("https://pahala.xyz/weight",final_weight);
+          
+          Serial.print("Berat anda : ");
+          Serial.println(final_weight);
+        }
+      }
   }
+  else {
+    alarm_connect_server(2);
+    
+    connect_server();
+  }
+
 }
