@@ -24,9 +24,11 @@ StaticJsonBuffer<200> jsonBuffer;
 //const char* ssid = "Mi 5 Phone";
 //const char* password =  "stefanuS";
 
+const char* ssid = "LEN";
+const char* password =  "11191996";
 
-const char* ssid = "AD1210";
-const char* password =  "aaaaaaaaa";
+//const char* ssid = "AD1210";
+//const char* password =  "aaaaaaaaa";
 
 //Define WebSocket
 char path[] = "/hi";

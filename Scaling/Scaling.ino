@@ -26,7 +26,7 @@ const char* password =  "stefanuS";
 #define UUID_SCALE "3b38fe3d-77a3-4c6f-b7be-9e08829d9a7e"
 StaticJsonBuffer<150> jsonBuffer;
 
-//HOST UNTUK WEBSOCKET
+//HOST UNTUK WEBSOCKETge
 char path[] = "/hi";
 char host[] = "pahala.xyz";
 WebSocketClient webSocketClient;
@@ -107,7 +107,7 @@ void connect_server(){//SEKALIAN NTP
   Serial.println(WiFi.localIP());
 
   // MULAI HANDSHAKE KE SERVER
-  if (client.connect(host, 8080)) {
+  if (client.connect(host, 8081)) {
     Serial.println("Connected");
   } 
   else {
@@ -228,55 +228,75 @@ void loop() {
 
 //  weighing(); 
   
-  if (client.connected()) {
-      Serial.println("Connected ^^");
-
-    //MINTA DATA ALARM
-      String sendData;
-      /** Json object for outgoing data */
-      JsonObject& jsonOut2 = jsonBuffer.createObject();
-      jsonOut2["key"] = "flag";
-      jsonOut2["flag"] = 1;
-      // Convert JSON object into a string
-      jsonOut2.printTo(sendData);
-      Serial.print("Data dikirim : ");
-      Serial.println(sendData);
-
-      webSocketClient.sendData(sendData);
-      statu="";alarm_time="";
-      webSocketClient.getData(data);
-      JsonObject& jsonIn = jsonBuffer.parseObject(data);
-      if (jsonIn.success()) {
-        if (jsonIn.containsKey("status") &&
-          jsonIn.containsKey("time")) { //JAM ALARM
-          statu = jsonIn["status"].as<String>();
-          alarm_time = jsonIn["time"].as<String>();
+    if (client.connected()) {
+        Serial.println("Connected ^^");
+  
+      //MINTA DATA ALARM
+        String sendData;
+        /** Json object for outgoing data */
+  //      JsonObject& jsonOut2 = jsonBuffer.createObject();
+  //      jsonOut2["key"] = "flag";
+  //      jsonOut2["flag"] = 1;
+  //      // Convert JSON object into a string
+  //      jsonOut2.printTo(sendData);
+  //      Serial.print("Data dikirim : ");
+  //      Serial.println(sendData);
+  //      webSocketClient.sendData(sendData);
+  //      jsonBuffer.clear();
+        String sendItems="";
+  
+        /** Json object for outgoing data */
+        JsonObject& jsonOut = jsonBuffer.createObject();
+        jsonOut["key"] = "uuid";
+        jsonOut["uuid"] = UUID_SCALE;
+        // Convert JSON object into a string
+        jsonOut.printTo(sendItems);
+  
+        Serial.println(sendItems);
+        
+        webSocketClient.sendData(sendItems);
+        jsonBuffer.clear();
+        
+        statu="";alarm_time="";
+        webSocketClient.getData(data);
+        JsonObject& jsonIn = jsonBuffer.parseObject(data);
+        if (jsonIn.success()) {
+          if (jsonIn.containsKey("status")) { //JAM ALARM
+              if(jsonIn.containsKey("text")){
+                  alarm_time = jsonIn["text"].as<String>();    
+              }
+            statu = jsonIn["status"].as<String>();
           }
-      }
-      Serial.println(data);
-
-    //CEK ALARM
-      timeClient.update();
-      Serial.println(timeClient.getFormattedTime());
-      if(alarm_time!=""){
-        if(timeClient.getFormattedTime()==alarm_time)//KALO UDH LEWAT JAMNYA{
-          digitalWrite(BUZZER, HIGH);
-          delay(100);
-          final_weight=0;
-          while(final_weight<10){
-            weighing();
-          }
-          digitalWrite(BUZZER, LOW);
-          //Kalo ada beratnya, kirim ke server;
-          post("https://pahala.xyz/weight",final_weight);
-          
-          
         }
+        Serial.print("Perintah : ");Serial.println(alarm_time);
+        Serial.print("Status : ");Serial.println(statu);
+        Serial.print("Penerimaan Data : ");Serial.println(data);
+  
+      //CEK ALARM
+        timeClient.update();
+        Serial.println(timeClient.getFormattedTime());
+        Serial.print("Epoch : ");Serial.println(timeClient.getEpochTime());
+        if(alarm_time!="" && statu=="200"){
+          if(timeClient.getFormattedTime()==alarm_time)//KALO UDH LEWAT JAMNYA
+          {
+            delay(100);
+            final_weight=0;
+            while(final_weight<10){
+              digitalWrite(BUZZER, HIGH);
+              weighing();
+            }
+            digitalWrite(BUZZER, LOW);
+            //Kalo ada beratnya, kirim ke server;
+            post("https://pahala.xyz/weight",final_weight);
+            
+            Serial.print("Berat anda : ");
+            Serial.println(final_weight);
+          }
+    }
+    else {
+      alarm_connect_server(2);
+      
+      connect_server();
+    }
   }
-  else {
-    alarm_connect_server(2);
-    
-    connect_server();
-  }
-
 }
