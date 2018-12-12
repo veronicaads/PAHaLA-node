@@ -179,13 +179,14 @@ void weighing(){
   
 }
 
-void post(String api_endpoint, float datum){//Datum temennya data
-  if(WiFi.status() == WL_CONNECTED && datum>=11){
+void post(String api_endpoint, String datum, float weight){//Datum temennya data
+  if(WiFi.status() == WL_CONNECTED && weight>=11){
       HTTPClient http;
       http.begin(api_endpoint);
       http.addHeader("Content-Type", "application/x-www-form-urlencoded");
   
-      int httpCode = http.POST("names="+(String)datum);
+//      int httpCode = http.POST(datum);
+      int httpCode = http.POST("weight="+(String)weight+"&uuid="+(String)UUID_SCALE);
       if(httpCode>0){
         String response = http.getString();
         
@@ -282,8 +283,8 @@ void loop() {
       Serial.print("Epoch : ");Serial.println(timeClient.getEpochTime());
       if(alarm_time!="" && statu=="200"){
         Serial.print("Cek Status"); Serial.println(statu);
-        if(timeClient.getFormattedTime()==alarm_time)//KALO UDH LEWAT JAMNYA
-//        if(alarm_time=="07:00:00")
+//        if(timeClient.getFormattedTime()==alarm_time)//KALO UDH LEWAT JAMNYA
+        if(alarm_time=="13:45:00")
         {
           delay(100);
           final_weight=0;
@@ -295,7 +296,14 @@ void loop() {
           digitalWrite(BUZZER, LOW);
           digitalWrite(LED_BUILTIN, LOW);
           //Kalo ada beratnya, kirim ke server;
-//          post("https://pahala.xyz/weight",final_weight);
+          
+          jsonBuffer.clear();
+          JsonObject& jsonOut = jsonBuffer.createObject();
+          jsonOut["weight"] = final_weight;
+          jsonOut["uuid"] = UUID_SCALE;
+          // Convert JSON object into a string
+          jsonOut.printTo(sendItems);
+          post("https://pahala.xyz/user/wakeup",sendItems, final_weight);
           
           Serial.print("Berat anda : ");
           Serial.println(final_weight);
