@@ -7,7 +7,6 @@
 #include <WiFi.h>
 
 //Library Tambahan
-#include <string.h>
 #include <ArduinoJson.h>
 
 //Define LAMPU 

@@ -15,7 +15,6 @@
 #include <SPI.h>
 
 //Library Tambahan
-#include <string.h>
 #include <ArduinoJson.h>
 
 //Define WiFi
