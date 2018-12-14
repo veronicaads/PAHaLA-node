@@ -22,7 +22,7 @@ const char* ssid = "Mi 5 Phone";
 const char* password =  "stefanuS";
 
 //Define Koneksi
-#define UUID_SCALE "3b38fe3d-77a3-4c6f-b7be-9e08829d9a7e"
+#define UUID_SCALE "52f41354-d94e-49e6-952e-16744cfbe467"
 StaticJsonBuffer<150> jsonBuffer;
 
 //HOST UNTUK WEBSOCKETge
