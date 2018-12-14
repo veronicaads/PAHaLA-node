@@ -21,6 +21,12 @@
 const char* ssid = "Mi 5 Phone";
 const char* password =  "stefanuS";
 
+//const char* ssid = "ASUS_X00TD";
+//const char* password =  "unimedia";
+
+//const char* ssid = "LEN";
+//const char* password =  "11191996";
+
 //Define Koneksi
 #define UUID_SCALE "52f41354-d94e-49e6-952e-16744cfbe467"
 StaticJsonBuffer<150> jsonBuffer;
@@ -33,7 +39,7 @@ WiFiClient client;
 
 //Define NTP
 #define NTP_OFFSET  25200 // In seconds 
-#define NTP_INTERVAL 60 * 1000    // In miliseconds
+#define NTP_INTERVAL 60*1000
 #define NTP_ADDRESS  "id.pool.ntp.org"
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, NTP_ADDRESS, 0, NTP_INTERVAL);
@@ -41,7 +47,7 @@ NTPClient timeClient(ntpUDP, NTP_ADDRESS, 0, NTP_INTERVAL);
 //Define Scale
 #define BUZZER 4
 HX711 scale(13, 14);
-float tmp, ar[100], final_weight=0;
+float tmp, ar[100], final_weight=-1;
 int i=0;
 
 //Define Alarm
@@ -278,12 +284,14 @@ void loop() {
 
     //CEK ALARM
       timeClient.update();
-      Serial.println(timeClient.getFormattedTime());
       Serial.print("Epoch : ");Serial.println(timeClient.getEpochTime());
+      Serial.print("Now : ");Serial.println(timeClient.getFormattedTime());
       if(alarm_time!="" && statu=="200"){
-        Serial.print("Cek Status"); Serial.println(statu);
-//        if(timeClient.getFormattedTime()==alarm_time)//KALO UDH LEWAT JAMNYA
-        if(alarm_time=="13:45:00")
+        Serial.print("Cek Status "); Serial.println(statu);
+        Serial.print("Alarm Status "); Serial.println(alarm_time);
+        if(timeClient.getFormattedTime()<alarm_time) final_weight = -1;
+        if(timeClient.getFormattedTime()>=alarm_time && final_weight<0)//KALO UDH LEWAT JAMNYA
+//        if(alarm_time>="13:45:00")
         {
           delay(100);
           final_weight=0;
@@ -306,8 +314,10 @@ void loop() {
           
           Serial.print("Berat anda : ");
           Serial.println(final_weight);
+          final_weight=0;
         }
       }
+      delay(200);
   }
   else {
     alarm_connect_server(2);
